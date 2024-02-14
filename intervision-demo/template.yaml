@@ -1,0 +1,75 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  intervision-demo
+
+  Sample SAM Template for intervision-demo
+
+Globals:
+  Function:
+    Timeout: 3
+    MemorySize: 128
+
+Resources:
+  CustomerInfoTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: Customer
+      AttributeDefinitions:
+        - AttributeName: CustomerID
+          AttributeType: S
+      KeySchema:
+        - AttributeName: CustomerID
+          KeyType: HASH
+      BillingMode: PAY_PER_REQUEST
+
+  LambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: LambdaDynamoDBAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - dynamodb:GetItem
+                  - dynamodb:Scan
+                  - dynamodb:Query
+                  - dynamodb:PutItem
+                Resource: !GetAtt CustomerInfoTable.Arn
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: arn:aws:logs:us-east-1:*:*
+
+  QueryCustomerInfoFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: query_customer_info/src
+      Handler: app.lambda_handler
+      Runtime: python3.9
+      Architectures:
+        - x86_64
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Environment:
+        Variables:
+          CUSTOMER_INFO_TABLE_NAME: !Ref CustomerInfoTable
+
+
+Outputs:
+  QueryCustomerInfoFunction:
+    Description: Query Customer Info Lambda Function ARN
+    Value: !GetAtt QueryCustomerInfoFunction.Arn
+  CustomerInfoTable:
+    Description: DynamoDB Table for Customer Information
+    Value: !Ref CustomerInfoTable
